@@ -16,5 +16,5 @@ Structure:
   - test.pkl：测试集
  
 环境配置:
-python 3.8
-torch 1.12.1
+- python 3.8
+- torch 1.12.1
