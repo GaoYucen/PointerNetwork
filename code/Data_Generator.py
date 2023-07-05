@@ -82,38 +82,39 @@ class TSPDataset(Dataset):
 
         return {'Points_List':points_list, 'Solutions':solutions}
 
-    def _to1hotvec(self, points):
-        """
-        :param points: List of integers representing the points indexes
-        :return: Matrix of One-Hot vectors
-        """
-        vec = np.zeros((len(points), self.seq_len))
+    # def _to1hotvec(self, points):
+    #     """
+    #     :param points: List of integers representing the points indexes
+    #     :return: Matrix of One-Hot vectors
+    #     """
+    #     vec = np.zeros((len(points), self.seq_len))
+    #
+    #     for i, v in enumerate(vec):
+    #         v[points[i]] = 1
+    #
+    #     return vec
 
-
-        for i, v in enumerate(vec):
-            v[points[i]] = 1
-
-        return vec
 #%%
-
 if __name__ == '__main__':
 
-    # #%%
-    # point = np.array([[0.0989, 0.2447],
-    #      [0.8830, 0.7288],
-    #      [0.1952, 0.1673],
-    #      [0.2451, 0.0894],
-    #      [0.1530, 0.3382],
-    #      [0.7516, 0.1987],
-    #      [0.9854, 0.2765],
-    #      [0.0058, 0.8141],
-    #      [0.0141, 0.8033],
-    #      [0.2369, 0.6167]])
-    #
-    # length, solution = tsp_opt(point)
-    # print(length)
-    # print(solution)
+# #%%
+#     point = np.array([[0.0989, 0.2447],
+#          [0.8830, 0.7288],
+#          [0.1952, 0.1673],
+#          [0.2451, 0.0894],
+#          [0.1530, 0.3382],
+#          [0.7516, 0.1987],
+#          [0.9854, 0.2765],
+#          [0.0058, 0.8141],
+#          [0.0141, 0.8033],
+#          [0.2369, 0.6167]])
+#
+#     length, solution = tsp_opt(point)
+#     res = tsp_opt(point)
+#     print(length)
+#     print(solution)
 
+#%%
     params, _ = get_config()
 
     # Training set
