@@ -3,7 +3,6 @@ from torch.utils.data import Dataset
 import numpy as np
 import itertools
 from tqdm import tqdm
-import pickle
 
 import sys
 sys.path.append('code/')
@@ -123,12 +122,10 @@ if __name__ == '__main__':
                          params.nof_points)
 
     # 存储dict dataset
-    with open('data/train.pkl', 'wb') as f:
-        pickle.dump(train_dataset, f)
+    np.save('data/train.npy', train_dataset)
 
     # Testing set
     test_dataset = TSPDataset(params.test_size,
                                 params.nof_points)
 
-    with open('data/test.pkl', 'wb') as f:
-        pickle.dump(test_dataset, f)
+    np.save('data/test.npy', test_dataset)
