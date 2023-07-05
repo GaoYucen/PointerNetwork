@@ -54,7 +54,7 @@ class TSPDataset(Dataset):
         tensor = torch.from_numpy(self.data['Points_List'][idx]).float()
         solution = torch.from_numpy(self.data['Solutions'][idx]).long() if self.solve else None
 
-        sample = {'Points':tensor, 'Solution':solution}
+        sample = {'Points':tensor, 'Solutions':solution}
 
         return sample
 
@@ -72,7 +72,7 @@ class TSPDataset(Dataset):
         if self.solve:
             for i, points in enumerate(solutions_iter):
                 solutions_iter.set_description('Solved %i/%i' % (i+1, len(points_list)))
-                solutions.append(self.solver(points))
+                solutions.append(np.array(self.solver(points)[1]))
         else:
             solutions = None
 

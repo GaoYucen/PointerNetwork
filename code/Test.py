@@ -90,7 +90,7 @@ for epoch in range(params.nof_epoch):
         iterator.set_description('Epoch %i/%i' % (epoch+1, params.nof_epoch))
 
         train_batch = Variable(sample_batched['Points'].float())
-        target_batch = Variable(sample_batched['Solutions'])
+        target_batch = Variable(sample_batched['Solution'])
 
         if USE_CUDA:
             train_batch = train_batch.cuda()
@@ -145,7 +145,7 @@ iterator = tqdm(test_dataloader, unit='Batch')
 
 for i_batch, sample_batched in enumerate(iterator):
     test_batch = Variable(sample_batched['Points'])
-    target_batch = Variable(sample_batched['Solutions'])
+    target_batch = Variable(sample_batched['Solution'])
 
     if USE_CUDA:
         test_batch = test_batch.cuda()
