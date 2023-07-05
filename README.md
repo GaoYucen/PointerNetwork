@@ -1,6 +1,11 @@
 # Ptr-net
 
+Pytorch implementation of Pointer Network\url{https://github.com/GaoYucen/Ptr-net}.
+
+
+
 Structure:
+
 - code:
   - Data_Generator.py: 生成optimal tsp方案
     - func tsp_opt(): 针对一个instance生成optimal tsp
@@ -17,7 +22,9 @@ Structure:
   - test.pkl：测试集
 - param:
   - param.pkl: 保存模型参数
- 
+
+
+
 Environment:
 - python 3.8.16
 - torch 1.12.1

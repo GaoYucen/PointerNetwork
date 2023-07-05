@@ -1,8 +1,6 @@
 """
 
-Pytorch implementation of Pointer Network.
 
-https://github.com/GaoYucen/Ptr-net
 
 """
 #%%
@@ -18,7 +16,7 @@ import pickle
 
 # 添加路径
 import sys
-sys.path.append('Ptr-net/code/')
+sys.path.append('code/')
 from PointerNet import PointerNet
 from Data_Generator import TSPDataset
 from config import get_config
@@ -40,21 +38,6 @@ model = PointerNet(params.embedding_size,
                    params.nof_lstms,
                    params.dropout,
                    params.bidir)
-
-# #%%
-# # 原参数 train_size = 1000000, test_size = 1000, nof_epoch = 50000
-# train_dataset = TSPDataset(params.train_size,
-#                      params.nof_points)
-#
-# # 存储dict dataset
-# with open('Ptr-net/data/train.pkl', 'wb') as f:
-#     pickle.dump(train_dataset, f)
-#
-# test_dataset = TSPDataset(params.test_size,
-#                             params.nof_points)
-#
-# with open('Ptr-net/data/test.pkl', 'wb') as f:
-#     pickle.dump(test_dataset, f)
 
 #%% 读取dict dataset
 # with open('Ptr-net/data/train.pkl', 'rb') as f:

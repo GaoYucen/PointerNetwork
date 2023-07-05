@@ -3,7 +3,11 @@ from torch.utils.data import Dataset
 import numpy as np
 import itertools
 from tqdm import tqdm
+import pickle
 
+import sys
+sys.path.append('code/')
+from config import get_config
 
 def tsp_opt(points):
     """
@@ -94,20 +98,36 @@ class TSPDataset(Dataset):
 
 if __name__ == '__main__':
 
-    #%%
-    point = np.array([[0.0989, 0.2447],
-         [0.8830, 0.7288],
-         [0.1952, 0.1673],
-         [0.2451, 0.0894],
-         [0.1530, 0.3382],
-         [0.7516, 0.1987],
-         [0.9854, 0.2765],
-         [0.0058, 0.8141],
-         [0.0141, 0.8033],
-         [0.2369, 0.6167]])
+    # #%%
+    # point = np.array([[0.0989, 0.2447],
+    #      [0.8830, 0.7288],
+    #      [0.1952, 0.1673],
+    #      [0.2451, 0.0894],
+    #      [0.1530, 0.3382],
+    #      [0.7516, 0.1987],
+    #      [0.9854, 0.2765],
+    #      [0.0058, 0.8141],
+    #      [0.0141, 0.8033],
+    #      [0.2369, 0.6167]])
+    #
+    # length, solution = tsp_opt(point)
+    # print(length)
+    # print(solution)
 
-    length, solution = tsp_opt(point)
-    print(length)
-    print(solution)
+    params, _ = get_config()
 
-# %%
+    # Training set
+    # 原参数 train_size = 1000000, test_size = 1000, nof_epoch = 50000
+    train_dataset = TSPDataset(params.train_size,
+                         params.nof_points)
+
+    # 存储dict dataset
+    with open('data/train.pkl', 'wb') as f:
+        pickle.dump(train_dataset, f)
+
+    # Testing set
+    test_dataset = TSPDataset(params.test_size,
+                                params.nof_points)
+
+    with open('data/test.pkl', 'wb') as f:
+        pickle.dump(test_dataset, f)
