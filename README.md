@@ -19,10 +19,10 @@ Structure:
       - --test_flag: 定义是否是Test Mode
       - --sys: 定义是否是mac系统，以便使用MPS【但因为torch2.0后才支持mps，需要进一步修改code】
 - data:
-  - train.pkl: 以dict形式存储的规模为1000的训练集
-  - test.pkl：测试集
+  - train.npy: 以dict形式存储的规模为1000的训练集
+  - test.npy：测试集
 - param:
-  - param.pkl: 保存模型参数
+  - param_5_100.pkl: 保存模型参数, 分别表示num_points和num_epochs
 
 
 

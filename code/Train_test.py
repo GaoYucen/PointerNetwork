@@ -160,4 +160,3 @@ if __name__ == '__main__':
         #%% 存储模型
         torch.save(model.state_dict(), 'param/param_'+str(params.nof_points)+'_'+str(params.nof_epoch)+'.pkl')
         print('save success')
-
