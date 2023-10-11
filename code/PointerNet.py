@@ -167,6 +167,24 @@ class Decoder(nn.Module):
         self.mask = Parameter(torch.ones(1), requires_grad=False)
         self.runner = Parameter(torch.zeros(1), requires_grad=False)
 
+    def update_mask(self, mask, selected_end_pointers, start_pointers, chains):
+        """
+        Update mask based on three rules.
+        """
+        batch_size, seq_len = mask.size()
+        for b in range(batch_size):
+            # Rule 1: Update mask for already selected end pointers
+            mask[b, selected_end_pointers[b]] = 0
+            
+            # Rule 2: Can't select the current start pointer
+            mask[b, start_pointers[b]] = 0
+            
+            # Rule 3: Can't select an endpoint forming a cycle
+            for start, end in chains[b]:
+                if end == start_pointers[b]:
+                    mask[b, start] = 0
+        return mask
+
     def forward(self, embedded_inputs,
                 decoder_input,
                 hidden,
@@ -184,8 +202,12 @@ class Decoder(nn.Module):
         batch_size = embedded_inputs.size(0)
         input_length = embedded_inputs.size(1)
 
+        # Initialize chain for each sequence in the batch at the start of forward process
+        chains = [set() for _ in range(batch_size)]
+        start_pointers = torch.arange(input_length).unsqueeze(0).repeat(batch_size, 1)
+
         # (batch, seq_len)
-        mask = self.mask.repeat(input_length).unsqueeze(0).repeat(batch_size, 1)
+        mask = torch.ones(batch_size, input_length, dtype=torch.bool)
         self.att.init_inf(mask.size())
 
         # Generating arang(input_length), broadcasted across batch_size
@@ -194,8 +216,8 @@ class Decoder(nn.Module):
             runner.data[i] = i
         runner = runner.unsqueeze(0).expand(batch_size, -1).long()
 
-        outputs = []
-        pointers = []
+        end_outputs = []
+        selected_end_pointers = [[] for _ in range(batch_size)] # Initialize as list of lists
 
         def step(x, hidden):
             """
@@ -227,31 +249,40 @@ class Decoder(nn.Module):
             return hidden_t, c_t, output
 
         # Recurrence loop
-        for _ in range(input_length):
+        for seq_idx in range(input_length):
+            current_start_pointer = start_pointers[:, seq_idx]
+
             h_t, c_t, outs = step(decoder_input, hidden)
             hidden = (h_t, c_t)
 
             # Masking selected inputs
-            masked_outs = outs * mask
+            masked_outs = outs * mask.float() # Convert mask to float to allow multiplication
 
             # Get maximum probabilities and indices
             max_probs, indices = masked_outs.max(1)
             one_hot_pointers = (runner == indices.unsqueeze(1).expand(-1, outs.size()[1])).float()
 
-            # Update mask to ignore seen indices
-            mask  = mask * (1 - one_hot_pointers)
+            # Update chains and end_pointers
+            for b in range(batch_size):
+                chains[b].add((current_start_pointer[b].item(), indices[b].item()))
+                selected_end_pointers[b].append(indices[b].item())
+            
+            # Update mask
+            mask = self.update_mask(mask.clone(), selected_end_pointers, current_start_pointer, chains)
 
             # Get embedded inputs by max indices
-            embedding_mask = one_hot_pointers.unsqueeze(2).expand(-1, -1, self.embedding_dim).byte()
+            embedding_mask = one_hot_pointers.unsqueeze(2).expand(-1, -1, self.embedding_dim).bool()
             decoder_input = embedded_inputs[embedding_mask.data].view(batch_size, self.embedding_dim)
 
-            outputs.append(outs.unsqueeze(0))
-            pointers.append(indices.unsqueeze(1))
+            end_outputs.append(outs.unsqueeze(0))
+            #end_pointers.append(indices.unsqueeze(1))
 
-        outputs = torch.cat(outputs).permute(1, 0, 2)
-        pointers = torch.cat(pointers, 1)
+        end_outputs = torch.cat(end_outputs).permute(1, 0, 2)
+        #end_pointers = torch.cat(end_pointers, 1)
+        end_pointers = [item for sublist in selected_end_pointers for item in sublist]
+        end_pointers = torch.tensor(end_pointers, dtype=torch.long)
 
-        return (outputs, pointers), hidden
+        return (end_outputs, end_pointers), hidden
 
 
 class PointerNet(nn.Module):
@@ -314,12 +345,12 @@ class PointerNet(nn.Module):
         else:
             decoder_hidden0 = (encoder_hidden[0][-1],
                                encoder_hidden[1][-1])
-        #(outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
-                                                           #decoder_input0,
-                                                           #decoder_hidden0,
-                                                           #encoder_outputs)
-        
-        return  end_outputs, final_end_pointers
+        (outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
+                                                           decoder_input0,
+                                                           decoder_hidden0,
+                                                           encoder_outputs)
 
-        # end_outputs: probability distribution of each end point, [batch_size, sequence_length, num_classes], [100, 5, 5]
-        # final_end_pointers: list of end points, [batch_size, sequence_length], [100, 5]
+        return  outputs, pointers
+
+        # outputs: probability distribution of each end point, [batch_size, sequence_length, num_classes], [100, 5, 5]
+        # pointers: list of end points, [batch_size, sequence_length], [100, 5]
