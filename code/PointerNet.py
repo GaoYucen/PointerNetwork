@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
 
-
 class Encoder(nn.Module):
     """
     Encoder class for Pointer-Net
@@ -213,17 +212,17 @@ class Decoder(nn.Module):
             gates = self.input_to_hidden(x) + self.hidden_to_hidden(h)
             input, forget, cell, out = gates.chunk(4, 1)
 
-            input = F.sigmoid(input)
-            forget = F.sigmoid(forget)
-            cell = F.tanh(cell)
-            out = F.sigmoid(out)
+            input = torch.sigmoid(input)
+            forget = torch.sigmoid(forget)
+            cell = torch.tanh(cell)
+            out = torch.sigmoid(out)
 
             c_t = (forget * c) + (input * cell)
-            h_t = out * F.tanh(c_t)
+            h_t = out * torch.tanh(c_t)
 
             # Attention section
             hidden_t, output = self.att(h_t, context, torch.eq(mask, 0))
-            hidden_t = F.tanh(self.hidden_out(torch.cat((hidden_t, h_t), 1)))
+            hidden_t = torch.tanh(self.hidden_out(torch.cat((hidden_t, h_t), 1)))
 
             return hidden_t, c_t, output
 
@@ -315,9 +314,12 @@ class PointerNet(nn.Module):
         else:
             decoder_hidden0 = (encoder_hidden[0][-1],
                                encoder_hidden[1][-1])
-        (outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
-                                                           decoder_input0,
-                                                           decoder_hidden0,
-                                                           encoder_outputs)
+        #(outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
+                                                           #decoder_input0,
+                                                           #decoder_hidden0,
+                                                           #encoder_outputs)
+        
+        return  end_outputs, final_end_pointers
 
-        return  outputs, pointers
+        # end_outputs: probability distribution of each end point, [batch_size, sequence_length, num_classes], [100, 5, 5]
+        # final_end_pointers: list of end points, [batch_size, sequence_length], [100, 5]
