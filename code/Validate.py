@@ -87,12 +87,6 @@ else:
     model.to(device)
 
 
-#%% 设置测试数据
-test_num = 10
-test_point_num = 15
-point_array = np.random.rand(test_num, test_point_num, 2)
-point_tensor = torch.tensor(point_array, dtype=torch.float)
-
 #%% 定义CrossEntropyLoss()和Adam优化器，并初始化losses
 CCE = torch.nn.CrossEntropyLoss()
 losses = []
