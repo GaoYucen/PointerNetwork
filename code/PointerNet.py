@@ -167,22 +167,15 @@ class Decoder(nn.Module):
         self.mask = Parameter(torch.ones(1), requires_grad=False)
         self.runner = Parameter(torch.zeros(1), requires_grad=False)
 
-    def update_mask(self, mask, selected_end_pointers, start_pointers, chains):
+    def update_mask(self, original_mask, selected_end_pointers):
         """
-        Update mask based on three rules.
+        Update mask based on Rule 1.
         """
-        batch_size, seq_len = mask.size()
+        batch_size, seq_len = original_mask.size()
+        mask = original_mask.clone()
         for b in range(batch_size):
             # Rule 1: Update mask for already selected end pointers
             mask[b, selected_end_pointers[b]] = 0
-            
-            # Rule 2: Can't select the current start pointer
-            mask[b, start_pointers[b]] = 0
-            
-            # Rule 3: Can't select an endpoint forming a cycle
-            for start, end in chains[b]:
-                if end == start_pointers[b]:
-                    mask[b, start] = 0
         return mask
 
     def forward(self, embedded_inputs,
@@ -250,7 +243,17 @@ class Decoder(nn.Module):
 
         # Recurrence loop
         for seq_idx in range(input_length):
+            temp_mask = mask.clone()  # Temporary mask for Rule 2 and Rule 3
             current_start_pointer = start_pointers[:, seq_idx]
+
+            # Rule 2: Can't select the current start pointer
+            temp_mask[torch.arange(batch_size), current_start_pointer] = 0
+            
+            # Rule 3: Can't select an endpoint forming a cycle
+            for b in range(batch_size):
+                for start, end in chains[b]:
+                    if end == current_start_pointer[b]:
+                        temp_mask[b, start] = 0
 
             h_t, c_t, outs = step(decoder_input, hidden)
             hidden = (h_t, c_t)
@@ -267,8 +270,8 @@ class Decoder(nn.Module):
                 chains[b].add((current_start_pointer[b].item(), indices[b].item()))
                 selected_end_pointers[b].append(indices[b].item())
             
-            # Update mask
-            mask = self.update_mask(mask.clone(), selected_end_pointers, current_start_pointer, chains)
+            # Update the original mask for Rule 1 at the end of the loop
+            mask = self.update_mask(mask, selected_end_pointers)
 
             # Get embedded inputs by max indices
             embedding_mask = one_hot_pointers.unsqueeze(2).expand(-1, -1, self.embedding_dim).bool()
@@ -279,8 +282,7 @@ class Decoder(nn.Module):
 
         end_outputs = torch.cat(end_outputs).permute(1, 0, 2)
         #end_pointers = torch.cat(end_pointers, 1)
-        end_pointers = [item for sublist in selected_end_pointers for item in sublist]
-        end_pointers = torch.tensor(end_pointers, dtype=torch.long)
+        end_pointers = torch.tensor(selected_end_pointers, dtype=torch.long)
 
         return (end_outputs, end_pointers), hidden
 
