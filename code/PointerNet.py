@@ -196,7 +196,7 @@ class Decoder(nn.Module):
         input_length = embedded_inputs.size(1)
 
         # Initialize chain for each sequence in the batch at the start of forward process
-        chains = [set() for _ in range(batch_size)]
+        chains = [{} for _ in range(batch_size)]
         start_pointers = torch.arange(input_length).unsqueeze(0).repeat(batch_size, 1)
 
         # (batch, seq_len)
@@ -211,6 +211,17 @@ class Decoder(nn.Module):
 
         end_outputs = []
         selected_end_pointers = [[] for _ in range(batch_size)] # Initialize as list of lists
+
+        def find_chain_start(chain, start):
+            """Traverse the chain from the given start until we find the start of the chain."""
+            visited = set()
+            current = start
+            while current in chain:
+                if current in visited: # Detected a cycle, should not happen
+                    return None
+                visited.add(current)
+                current = chain[current]
+            return current
 
         def step(x, hidden):
             """
@@ -251,15 +262,20 @@ class Decoder(nn.Module):
             
             # Rule 3: Can't select an endpoint forming a cycle
             for b in range(batch_size):
-                for start, end in chains[b]:
-                    if end == current_start_pointer[b]:
-                        temp_mask[b, start] = 0
+                chain_start = find_chain_start(chains[b], current_start_pointer[b].item())
+                temp_mask[b, chain_start] = 0
+
+                # Check if forming a cycle that is not the final cycle
+                if seq_idx != input_length - 1:  # if not the last sequence
+                    chain_end = chains[b][chain_start] if chain_start in chains[b] else None
+                    if chain_end == chain_start:  # If the chain has formed a cycle
+                        temp_mask[b, chain_end] = 0  # Block the end point that would form the cycle
 
             h_t, c_t, outs = step(decoder_input, hidden)
             hidden = (h_t, c_t)
 
             # Masking selected inputs
-            masked_outs = outs * mask.float() # Convert mask to float to allow multiplication
+            masked_outs = outs * temp_mask.float() # Convert mask to float to allow multiplication
 
             # Get maximum probabilities and indices
             max_probs, indices = masked_outs.max(1)
@@ -267,7 +283,7 @@ class Decoder(nn.Module):
 
             # Update chains and end_pointers
             for b in range(batch_size):
-                chains[b].add((current_start_pointer[b].item(), indices[b].item()))
+                chains[b][current_start_pointer[b].item()] = indices[b].item()
                 selected_end_pointers[b].append(indices[b].item())
             
             # Update the original mask for Rule 1 at the end of the loop
