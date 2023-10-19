@@ -75,6 +75,13 @@ def get_length_2(point, solution):
                             + (point[solution[i], 1] - point[i, 1]) ** 2)
     return length
 
+def get_length_3(point, start, end):
+    length = 0
+    for i in range(len(end)):
+        length += math.sqrt((point[end[i], 0] - point[start[i], 0]) ** 2
+                            + (point[end[i], 1] - point[start[i], 1]) ** 2)
+    return length
+
 #%%
 model.eval()
 
@@ -94,19 +101,28 @@ if USE_CUDA:
 else:
     model.to(device)
 
+
 #%% 定义CrossEntropyLoss()和Adam优化器，并初始化losses
 CCE = torch.nn.CrossEntropyLoss()
 losses = []
 batch_loss = []
 iterator = tqdm(test_dataloader, unit='Batch')
 
+error_sum = 0
 length_list = []
 length_opt_list = []
-error_sum = 0
 for i_batch, sample_batched in enumerate(iterator):
     test_batch = Variable(sample_batched['Points'])
     target_batch = Variable(sample_batched['Solutions'])
-    print(test_batch)
+    # # 创建全0列表
+    # target_batch_tmp = torch.zeros(test_batch.size()[0], test_batch.size()[1], dtype=torch.long)
+    # for i in range(test_batch.size()[0]):
+    #     for j in range(test_batch.size()[1]):
+    #         if j != test_batch.size()[1] - 1:
+    #             target_batch_tmp[i, target_batch[i, j]] = target_batch[i, j+1]
+    #         else:
+    #             target_batch_tmp[i, target_batch[i, j]] = target_batch[i, 0]
+    # target_batch = target_batch_tmp
 
     if USE_CUDA:
         test_batch = test_batch.cuda()
@@ -115,31 +131,31 @@ for i_batch, sample_batched in enumerate(iterator):
         test_batch = test_batch.to(device)
         target_batch = target_batch.to(device)
 
-    o, p = model(test_batch)
+    o_start, p_start, o, p = model(test_batch)
 
-    solutions = np.array(p)
-    print(solutions)
+    start_solutions = np.array(p_start)
+    end_solutions = np.array(p)
     points = np.array(test_batch)
     solutions_opt = np.array(target_batch)
 
     error = 0
 
-    for i in range(len(solutions)):
-        length = get_length(points[i], solutions[i])
-        # length = get_length_2(points[i], solutions[i])
+    for i in range(len(end_solutions)):
+        # length = get_length(points[i]，solutions[i])
+        length = get_length_3(points[i], start_solutions[i], end_solutions[i])
         length_opt = get_length(points[i], solutions_opt[i])
         length_list.append(length)
         length_opt_list.append(length_opt)
         error_opt = (length - length_opt) / length_opt * 100
         error += error_opt
 
-    error = error / len(solutions)
+    error = error / len(end_solutions)
     error_sum += error
     error_print = error_sum / (i_batch + 1)
     print('current error: %.2f%%' % error)
     print('average error: %.2f%%' % error_print)
-    print('current length: %.2f' % (sum(length_list)/len(length_list)))
-    print('current length_opt: %.2f' % (sum(length_opt_list)/len(length_opt_list)))
+    print('current length: %.2f' % (sum(length_list) / len(length_list)))
+    print('current length_opt: %.2f' % (sum(length_opt_list) / len(length_opt_list)))
 
     o = o.contiguous().view(-1, o.size()[-1])
     target_batch = target_batch.view(-1)

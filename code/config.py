@@ -27,7 +27,7 @@ parser.add_argument('--nof_lstms', type=int, default=2, help='Number of LSTM lay
 parser.add_argument('--dropout', type=float, default=0., help='Dropout value')
 parser.add_argument('--bidir', default=True, action='store_true', help='Bidirectional')
 # Train and Test mode
-parser.add_argument('--test_flag', action='store_true', help='Test mode')
+parser.add_argument('--test_flag', default=False, action='store_true', help='Test mode')
 
 def get_config():
     config, unparsed = parser.parse_known_args()
