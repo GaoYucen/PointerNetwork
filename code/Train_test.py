@@ -132,6 +132,20 @@ if __name__ == '__main__':
                 train_batch = Variable(sample_batched['Points'].float())
                 target_batch = Variable(sample_batched['Solutions'])
 
+                target_batch_tmp = torch.zeros(target_batch.size()[0], target_batch.size()[1], dtype=torch.long)
+                for i in range(target_batch.size()[0]):
+                    for j in range(target_batch.size()[1]):
+                        target_batch_tmp[i, j] = target_batch[i, (j+1)%target_batch.size()[1]]
+                target_batch = target_batch_tmp
+
+                # target_batch_tmp = torch.zeros(target_batch.size()[0], target_batch.size()[1], dtype=torch.long)
+                # for i in range(target_batch.size()[0]):
+                #     for j in range(target_batch.size()[1]):
+                #         if j != target_batch.size()[1] - 1:
+                #             target_batch_tmp[i, target_batch[i, j]] = target_batch[i, j + 1]
+                #         else:
+                #             target_batch_tmp[i, target_batch[i, j]] = target_batch[i, 0]
+                # target_batch = target_batch_tmp
 
                 # 放置data到device
                 if USE_CUDA:
@@ -141,15 +155,7 @@ if __name__ == '__main__':
                     train_batch = train_batch.to(device)
                     target_batch = target_batch.to(device)
 
-                o_s, p_s, o, p = model(train_batch)
-
-                target_batch_tmp = torch.zeros(target_batch.size()[0], target_batch.size()[1], dtype=torch.long)
-                for i in range(target_batch.size()[0]):
-                    for j in range(target_batch.size()[1]):
-                        target_batch_tmp[i, p_s[i, j]] = target_batch[i][(list(target_batch[i]).index(p_s[i, j])+1)%target_batch.size()[1]]
-                target_batch = target_batch_tmp
-
-                o_s = o_s.contiguous().view(-1, o_s.size()[-1])
+                o, p = model(train_batch)
                 o = o.contiguous().view(-1, o.size()[-1])
 
                 target_batch = target_batch.view(-1)

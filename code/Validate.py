@@ -74,14 +74,6 @@ def get_length_2(point, solution):
         length += math.sqrt((point[solution[i], 0] - point[i, 0]) ** 2
                             + (point[solution[i], 1] - point[i, 1]) ** 2)
     return length
-
-def get_length_3(point, start, end):
-    length = 0
-    for i in range(len(end)):
-        length += math.sqrt((point[end[i], 0] - point[start[i], 0]) ** 2
-                            + (point[end[i], 1] - point[start[i], 1]) ** 2)
-    return length
-
 #%%
 model.eval()
 
@@ -131,25 +123,25 @@ for i_batch, sample_batched in enumerate(iterator):
         test_batch = test_batch.to(device)
         target_batch = target_batch.to(device)
 
-    o_start, p_start, o, p = model(test_batch)
+    o, p = model(test_batch)
 
-    start_solutions = np.array(p_start)
-    end_solutions = np.array(p)
+    solutions = np.array(p)
     points = np.array(test_batch)
     solutions_opt = np.array(target_batch)
 
     error = 0
 
-    for i in range(len(end_solutions)):
-        # length = get_length(points[i]，solutions[i])
-        length = get_length_3(points[i], start_solutions[i], end_solutions[i])
+
+    for i in range(len(solutions)):
+        length = get_length(points[i], solutions[i])
+        # length = get_length_2(points[i], solutions[i])
         length_opt = get_length(points[i], solutions_opt[i])
         length_list.append(length)
         length_opt_list.append(length_opt)
         error_opt = (length - length_opt) / length_opt * 100
         error += error_opt
 
-    error = error / len(end_solutions)
+    error = error / len(solutions)
     error_sum += error
     error_print = error_sum / (i_batch + 1)
     print('current error: %.2f%%' % error)

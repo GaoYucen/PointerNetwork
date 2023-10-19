@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
+import random
 
 class Encoder(nn.Module):
     """
@@ -167,15 +168,6 @@ class Decoder(nn.Module):
         self.mask = Parameter(torch.ones(1), requires_grad=False)
         self.runner = Parameter(torch.zeros(1), requires_grad=False)
 
-        self.input_to_hidden_start = nn.Linear(embedding_dim, 4 * hidden_dim)
-        self.hidden_to_hidden_start = nn.Linear(hidden_dim, 4 * hidden_dim)
-        self.hidden_out_start = nn.Linear(hidden_dim * 2, hidden_dim)
-        self.att_start = Attention(hidden_dim, hidden_dim)
-
-        # Used for propagating .cuda() command
-        self.mask_start = Parameter(torch.ones(1), requires_grad=False)
-        self.runner_start = Parameter(torch.zeros(1), requires_grad=False)
-
     def update_mask(self, original_mask, selected_end_pointers):
         """
         Update mask based on Rule 1.
@@ -206,14 +198,11 @@ class Decoder(nn.Module):
 
         # Initialize chain for each sequence in the batch at the start of forward process
         chains = [{} for _ in range(batch_size)]
-        # start_pointers = torch.arange(input_length).unsqueeze(0).repeat(batch_size, 1)
+        start_pointers = torch.arange(input_length).unsqueeze(0).repeat(batch_size, 1)
 
         # (batch, seq_len)
         mask = torch.ones(batch_size, input_length, dtype=torch.bool)
         self.att.init_inf(mask.size())
-
-        mask_start = torch.ones(batch_size, input_length, dtype=torch.bool)
-        self.att_start.init_inf(mask.size())
 
         # Generating arang(input_length), broadcasted across batch_size
         runner = self.runner.repeat(input_length)
@@ -221,15 +210,8 @@ class Decoder(nn.Module):
             runner.data[i] = i
         runner = runner.unsqueeze(0).expand(batch_size, -1).long()
 
-        runner_start = self.runner_start.repeat(input_length)
-        for i in range(input_length):
-            runner_start.data[i] = i
-        runner_start = runner_start.unsqueeze(0).expand(batch_size, -1).long()
-
         end_outputs = []
         selected_end_pointers = [[] for _ in range(batch_size)] # Initialize as list of lists
-        outputs_start = []
-        pointers_start = []
 
         def get_dict_key(dic, value):
             keys = list(dic.keys())
@@ -279,74 +261,16 @@ class Decoder(nn.Module):
 
             return hidden_t, c_t, output
 
-        def step_start(x, hidden):
-            """
-            Recurrence step function
-
-            :param Tensor x: Input at time t
-            :param tuple(Tensor, Tensor) hidden: Hidden states at time t-1
-            :return: Hidden states at time t (h, c), Attention probabilities (Alpha)
-            """
-
-            # Regular LSTM
-            h, c = hidden
-
-            gates = self.input_to_hidden_start(x) + self.hidden_to_hidden_start(h)
-            input, forget, cell, out = gates.chunk(4, 1)
-
-            input = torch.sigmoid(input)
-            forget = torch.sigmoid(forget)
-            cell = torch.tanh(cell)
-            out = torch.sigmoid(out)
-
-            c_t = (forget * c) + (input * cell)
-            h_t = out * torch.tanh(c_t)
-
-            # Attention section
-            hidden_t, output = self.att_start(h_t, context, torch.eq(mask, 0))
-            hidden_t = torch.tanh(self.hidden_out_start(torch.cat((hidden_t, h_t), 1)))
-
-            return hidden_t, c_t, output
-
-        decoder_input_start = decoder_input.clone()
-        hidden_start = hidden
-
         # Recurrence loop
         for seq_idx in range(input_length):
-            # print('mask_start', mask_start[0])
-            # start
-            h_t_start, c_t_start, outs_start = step_start(decoder_input_start, hidden_start)
-            # print('outs_start', outs_start[0])
-            hidden_start = (h_t_start, c_t_start)
-
-            mask_start_tmp = mask_start.clone()
-            for i in range(batch_size):
-                mask_start_tmp[i] = torch.tensor([-1 if item == 0 else 1 for item in mask_start[i]])
-            # print('mask_start_tmp', mask_start_tmp[0])
-            masked_outs_start = outs_start * mask_start_tmp  # Convert mask to float to allow multiplication
-            for i in range(batch_size):
-                masked_outs_start[i] = torch.tensor([-1 if item == -1 else item1 for item, item1 in zip(mask_start_tmp[i], masked_outs_start[i])])
-            # print('masked_outs_start', masked_outs_start[0])
-
-            # Get maximum probabilities and indices
-            max_probs_start, indices_start = masked_outs_start.max(1)
-            # print('indices_start', indices_start[0])
-            one_hot_pointers_start = (runner_start == indices_start.unsqueeze(1).expand(-1, outs_start.size()[1])).float()
-            # print('one_hot_pointers_start', one_hot_pointers_start[0])
-
-            # Update mask to ignore seen indices
-            mask_start = mask_start * (1 - one_hot_pointers_start)
-
-
-            # Get embedded inputs by max indices
-            embedding_mask_start = one_hot_pointers_start.unsqueeze(2).expand(-1, -1, self.embedding_dim).byte()
-            decoder_input_start = embedded_inputs[embedding_mask_start.data].view(batch_size, self.embedding_dim)
-
-            outputs_start.append(outs_start.unsqueeze(0))
-            pointers_start.append(indices_start.unsqueeze(1))
-
+            # print('selected_end_pointers', selected_end_pointers)
             temp_mask = mask.clone()  # Temporary mask for Rule 2 and Rule 3
-            current_start_pointer = torch.tensor([item[0] for item in pointers_start[seq_idx].tolist()], dtype=int)
+            # current_start_pointer = start_pointers[:, seq_idx]
+            if seq_idx == 0:
+                start = 0
+                current_start_pointer = torch.tensor([start]*batch_size)
+            else:
+                current_start_pointer = torch.tensor(selected_end_pointers)[:, -1]
             # print('current_start_pointer', current_start_pointer)
 
             # Rule 2: Can't select the current start pointer
@@ -393,10 +317,8 @@ class Decoder(nn.Module):
         end_outputs = torch.cat(end_outputs).permute(1, 0, 2)
         #end_pointers = torch.cat(end_pointers, 1)
         end_pointers = torch.tensor(selected_end_pointers, dtype=torch.long)
-        start_outputs = torch.cat(outputs_start).permute(1, 0, 2)
-        start_pointers = torch.cat(pointers_start, 1)
 
-        return (start_outputs, start_pointers, end_outputs, end_pointers), hidden
+        return (end_outputs, end_pointers), hidden
 
 
 class PointerNet(nn.Module):
@@ -459,12 +381,12 @@ class PointerNet(nn.Module):
         else:
             decoder_hidden0 = (encoder_hidden[0][-1],
                                encoder_hidden[1][-1])
-        (start_outputs, start_pointers, outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
+        (outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
                                                            decoder_input0,
                                                            decoder_hidden0,
                                                            encoder_outputs)
 
-        return  start_outputs, start_pointers, outputs, pointers
+        return  outputs, pointers
 
         # outputs: probability distribution of each end point, [batch_size, sequence_length, num_classes], [100, 5, 5]
         # pointers: list of end points, [batch_size, sequence_length], [100, 5]
