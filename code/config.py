@@ -14,7 +14,7 @@ parser.add_argument('--val_size', default=10000, type=int, help='Validation data
 parser.add_argument('--test_size', default=100, type=int, help='Test data size')
 parser.add_argument('--batch_size', default=256, type=int, help='Batch size')
 # Train
-parser.add_argument('--nof_epoch', default=100, type=int, help='Number of epochs')
+parser.add_argument('--nof_epoch', default=1000, type=int, help='Number of epochs')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
 # GPU
 parser.add_argument('--gpu', default=True, action='store_true', help='Enable gpu')
@@ -27,7 +27,7 @@ parser.add_argument('--nof_lstms', type=int, default=2, help='Number of LSTM lay
 parser.add_argument('--dropout', type=float, default=0., help='Dropout value')
 parser.add_argument('--bidir', default=True, action='store_true', help='Bidirectional')
 # Train and Test mode
-parser.add_argument('--test_flag', default=False, action='store_true', help='Test mode')
+parser.add_argument('--test_flag', action='store_true', help='Test mode')
 
 def get_config():
     config, unparsed = parser.parse_known_args()

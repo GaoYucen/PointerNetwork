@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # 添加路径
 import sys
-sys.path.append('code/')
+sys.path.append('Ptr-net/code')
 from PointerNet import PointerNet
 from Data_Generator import TSPDataset
 from config import get_config
@@ -127,8 +127,6 @@ if __name__ == '__main__':
             for i_batch, sample_batched in enumerate(iterator):
                 iterator.set_description('Epoch %i/%i' % (epoch+1, params.nof_epoch))
 
-                # train_batch: [batch_size, seq_len, feature_dim]
-                # target_batch: [batch_size, seq_len]
                 train_batch = Variable(sample_batched['Points'].float())
                 target_batch = Variable(sample_batched['Solutions'])
 

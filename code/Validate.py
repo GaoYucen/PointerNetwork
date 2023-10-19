@@ -74,6 +74,7 @@ def get_length_2(point, solution):
         length += math.sqrt((point[solution[i], 0] - point[i, 0]) ** 2
                             + (point[solution[i], 1] - point[i, 1]) ** 2)
     return length
+
 #%%
 model.eval()
 
@@ -93,17 +94,19 @@ if USE_CUDA:
 else:
     model.to(device)
 
-
 #%% 定义CrossEntropyLoss()和Adam优化器，并初始化losses
 CCE = torch.nn.CrossEntropyLoss()
 losses = []
 batch_loss = []
 iterator = tqdm(test_dataloader, unit='Batch')
 
+length_list = []
+length_opt_list = []
 error_sum = 0
 for i_batch, sample_batched in enumerate(iterator):
     test_batch = Variable(sample_batched['Points'])
     target_batch = Variable(sample_batched['Solutions'])
+    print(test_batch)
 
     if USE_CUDA:
         test_batch = test_batch.cuda()
@@ -115,15 +118,18 @@ for i_batch, sample_batched in enumerate(iterator):
     o, p = model(test_batch)
 
     solutions = np.array(p)
+    print(solutions)
     points = np.array(test_batch)
     solutions_opt = np.array(target_batch)
 
     error = 0
 
     for i in range(len(solutions)):
-        # length = get_length(points[i]，solutions[i])
-        length = get_length_2(points[i], solutions[i])
+        length = get_length(points[i], solutions[i])
+        # length = get_length_2(points[i], solutions[i])
         length_opt = get_length(points[i], solutions_opt[i])
+        length_list.append(length)
+        length_opt_list.append(length_opt)
         error_opt = (length - length_opt) / length_opt * 100
         error += error_opt
 
@@ -132,6 +138,8 @@ for i_batch, sample_batched in enumerate(iterator):
     error_print = error_sum / (i_batch + 1)
     print('current error: %.2f%%' % error)
     print('average error: %.2f%%' % error_print)
+    print('current length: %.2f' % (sum(length_list)/len(length_list)))
+    print('current length_opt: %.2f' % (sum(length_opt_list)/len(length_opt_list)))
 
     o = o.contiguous().view(-1, o.size()[-1])
     target_batch = target_batch.view(-1)
